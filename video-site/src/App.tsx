@@ -174,14 +174,17 @@ function App() {
       
       console.log(`所有配图生成完成，共${rawImages.length}张`);
 
-      // 只有需要背景处理的才进行处理
+      // 检查是否需要背景处理（抠图）
       const needsBackgroundProcessing = config.imageBackgroundRemoval !== 'none' && 
                                       config.imageBackgroundRemoval !== 'css-blend' && 
                                       config.imageBackgroundRemoval !== 'checkerboard-remove';
 
+      console.log(`背景处理配置: ${config.imageBackgroundRemoval}, 需要处理: ${needsBackgroundProcessing}`);
+
       let images = rawImages.map(img => ({...img, processedUrl: img.url})); // 默认使用原图
 
       if (needsBackgroundProcessing) {
+        console.log('开始调用抠图API处理所有生成的卡通图片...');
         setGenerationStep('完全并发处理背景去除...');
         setBackgroundProgress({completed: 0, total: rawImages.length});
         console.log('5. 完全并发处理背景去除...');
@@ -192,27 +195,30 @@ function App() {
           let processedUrl = imageData.url; // 默认使用原图
           
           try {
-            console.log(`开始处理图片背景: ${imageData.text}`);
+            console.log(`[抠图API] 开始处理图片背景: ${imageData.text} - ${imageData.url}`);
             
             if (config.imageBackgroundRemoval === 'auto') {
               // 智能模式：优先使用remove.bg API
               try {
+                console.log(`[抠图API] 使用remove.bg API处理: ${imageData.text}`);
                 processedUrl = await imageProcessor.removeBackgroundWithRemoveBg(imageData.url);
-                console.log(`Remove.bg API处理完成: ${imageData.text}`);
+                console.log(`[抠图API] Remove.bg API处理完成: ${imageData.text} -> ${processedUrl}`);
               } catch (error) {
-                console.log(`Remove.bg API失败，使用本地AI: ${imageData.text}`);
+                console.log(`[抠图API] Remove.bg API失败，切换到本地AI: ${imageData.text}`, error);
                 processedUrl = await imageProcessor.removeBackgroundFromUrl(imageData.url);
-                console.log(`本地AI处理完成: ${imageData.text}`);
+                console.log(`[抠图API] 本地AI处理完成: ${imageData.text} -> ${processedUrl}`);
               }
             } else if (config.imageBackgroundRemoval === 'ai-remove') {
+              console.log(`[抠图API] 使用本地AI处理: ${imageData.text}`);
               processedUrl = await imageProcessor.removeBackgroundFromUrl(imageData.url);
-              console.log(`AI处理完成: ${imageData.text}`);
+              console.log(`[抠图API] 本地AI处理完成: ${imageData.text} -> ${processedUrl}`);
             } else if (config.imageBackgroundRemoval === 'removebg-api') {
+              console.log(`[抠图API] 使用remove.bg API处理: ${imageData.text}`);
               processedUrl = await imageProcessor.removeBackgroundWithRemoveBg(imageData.url);
-              console.log(`Remove.bg API处理完成: ${imageData.text}`);
+              console.log(`[抠图API] Remove.bg API处理完成: ${imageData.text} -> ${processedUrl}`);
             }
           } catch (error) {
-            console.error(`背景处理失败，使用原图: ${imageData.text}`, error);
+            console.error(`[抠图API] 背景处理失败，使用原图: ${imageData.text}`, error);
             processedUrl = imageData.url;
           }
           
@@ -229,7 +235,15 @@ function App() {
         });
         
         images = await Promise.all(processImagePromises);
-        console.log(`所有背景处理完成，共${images.length}张`);
+        console.log(`[抠图API] 所有背景处理完成！共处理${images.length}张图片`);
+        console.log(`[抠图API] 抠图处理结果摘要:`, images.map(img => ({
+          text: img.text,
+          原始URL: img.url,
+          处理后URL: img.processedUrl,
+          是否成功处理: img.url !== img.processedUrl
+        })));
+      } else {
+        console.log('根据配置跳过背景处理（抠图）步骤');
       }
 
       setGenerationStep('完成生成');
