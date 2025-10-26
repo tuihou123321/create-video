@@ -4,7 +4,7 @@ import './ConfigPage.css';
 interface ConfigPageProps {
   onGenerate: (config: GenerationConfig) => void;
   onLoadHistory: (historyItem: HistoryItem) => void;
-  onBackToLanding?: () => void;
+  onBackToHome?: () => void;
   isGenerating: boolean;
   generationStep?: string;
   imageProgress?: {completed: number, total: number};
@@ -81,7 +81,7 @@ const DEFAULT_CONFIG: GenerationConfig = {
 const ConfigPage: React.FC<ConfigPageProps> = ({ 
   onGenerate, 
   onLoadHistory,
-  onBackToLanding,
+  onBackToHome,
   isGenerating, 
   generationStep, 
   imageProgress, 
@@ -124,8 +124,8 @@ const ConfigPage: React.FC<ConfigPageProps> = ({
     <div className="config-page">
       <div className="config-container">
         <div className="config-header">
-          {onBackToLanding && (
-            <button className="back-to-landing-btn" onClick={onBackToLanding}>
+          {onBackToHome && (
+            <button className="back-to-home-btn" onClick={onBackToHome}>
               ← 返回首页
             </button>
           )}

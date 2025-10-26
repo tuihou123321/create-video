@@ -1,0 +1,273 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.App {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+.background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.bg-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.watermark-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 15vw;
+  font-weight: bold;
+  color: rgba(0, 0, 0, 0.15);
+  z-index: 1;
+  user-select: none;
+  letter-spacing: 0.2em;
+  filter: blur(2px);
+}
+
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 30px 40px;
+  z-index: 10;
+  color: white;
+  font-size: 1.2rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.header-left, .header-right {
+  font-weight: 500;
+}
+
+.cartoon-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cartoon-image {
+  max-width: 90vw;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.5));
+  
+  /* 默认智能背景去除 */
+  background: transparent;
+  mix-blend-mode: multiply;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.cartoon-image.css-blend-mode {
+  /* CSS混合模式处理 */
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.5)) contrast(1.2) brightness(1.1);
+}
+
+.cartoon-image.checkerboard-remove {
+  /* 棋盘格背景去除 - 简单有效 */
+  mix-blend-mode: darken;
+  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.5)) contrast(1.3) brightness(1.2);
+}
+
+.cartoon-image.ai-processed {
+  /* AI处理后的图片 - 保持原始效果 */
+  mix-blend-mode: normal;
+  background: transparent;
+  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.5));
+}
+
+.cartoon-image.no-background-removal {
+  /* 保持原始图片 */
+  mix-blend-mode: normal;
+  background: none;
+  image-rendering: auto;
+}
+
+.processing-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 10px;
+}
+
+.processing-spinner {
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 600;
+  padding: 20px 30px;
+  background: rgba(102, 126, 234, 0.9);
+  border-radius: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0.7; transform: scale(1); }
+}
+
+.subtitle {
+  position: absolute;
+  bottom: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 20px 50px;
+  border-radius: 15px;
+  font-weight: bold;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8), 
+               -1px -1px 2px rgba(0, 0, 0, 0.8), 
+               1px -1px 2px rgba(0, 0, 0, 0.8), 
+               -1px 1px 2px rgba(0, 0, 0, 0.8), 
+               1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.progress-container {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  z-index: 15;
+  cursor: pointer;
+}
+
+.progress-bar-video {
+  width: 100%;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.progress-fill-video {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 4px;
+  transition: width 0.1s ease;
+}
+
+.progress-time {
+  display: flex;
+  justify-content: space-between;
+  color: white;
+  font-size: 0.9rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.controls {
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  gap: 20px;
+}
+
+.back-button {
+  padding: 12px 35px;
+  font-size: 1.1rem;
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  color: #333;
+}
+
+.back-button:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.play-button {
+  padding: 12px 35px;
+  font-size: 1.1rem;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.play-button:hover {
+  background-color: white;
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.play-button:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .header {
+    font-size: 0.9rem;
+    padding: 20px;
+  }
+  
+  .subtitle {
+    font-size: 2.5rem;
+    padding: 15px 30px;
+    bottom: 20%;
+  }
+  
+  .watermark-text {
+    font-size: 20vw;
+  }
+  
+  .progress-container {
+    width: 90%;
+    bottom: 140px;
+  }
+  
+  .controls {
+    flex-direction: column;
+    gap: 10px;
+    bottom: 30px;
+  }
+}
