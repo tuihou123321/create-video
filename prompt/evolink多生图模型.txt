@@ -1,0 +1,38 @@
+# Evolink-图像生成接口(gemini, gpt-4o, doubao-seedream-4.0)
+
+入参：
+说明： model 支持的模型包括：gemini-3-pro-image-preview、nano-banana-2-lite、gemini-2.5-flash-image
+curl --request POST \
+  --url https://api.evolink.ai/v1/images/generations \
+  --header 'Authorization: Bearer <apikey>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "model": "gemini-2.5-flash-image",
+  "prompt": "A cat playing on the grass"
+}'
+
+出参：
+{
+  "created": 1756817821,
+  "id": "task-unified-1756817821-4x3rx6ny",
+  "model": "gpt-4o-image",
+  "object": "image.generation.task",
+  "progress": 100,
+  "results": [
+    "http://example.com/image.jpg"
+  ],
+  "status": "completed",
+  "task_info": {
+    "can_cancel": false
+  },
+  "type": "image"
+}
+
+查询接口
+入参：
+curl --request GET \
+  --url https://api.evolink.ai/v1/tasks/task-unified-1763997177-v42puty2 \
+  --header 'Authorization: Bearer <apikey>'
+
+出参：
+{"created":1763997178,"id":"task-unified-1763997177-v42puty2","model":"gemini-2.5-flash-image","object":"image.generation.task","progress":100,"results":["https://tempfile.aiquickdraw.com/workers/nano/image_1763997187238_p87o6u.png"],"status":"completed","task_info":{"can_cancel":false},"type":"image"}

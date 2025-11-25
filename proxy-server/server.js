@@ -38,7 +38,7 @@ const makeAPIRequest = async (url, data, headers = {}) => {
 app.post('/api/tts', async (req, res) => {
   try {
     const { text, voice } = req.body;
-    
+
     const data = {
       model: 'qwen3-tts-flash',
       input: {
@@ -59,37 +59,91 @@ app.post('/api/tts', async (req, res) => {
   }
 });
 
-// 图生图API
+// Evolink Image Generation API
 app.post('/api/image-generation', async (req, res) => {
   try {
-    const { characterImage, prompt } = req.body;
-    
-    const data = {
-      model: 'qwen-image-edit',
-      input: {
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { image: characterImage },
-              { text: prompt },
-            ],
-          },
-        ],
-      },
-      parameters: {
-        negative_prompt: '',
-        watermark: false,
-      },
-    };
+    const { characterImage, prompt, model = 'doubao-seedream-4.0' } = req.body;
+    const evolinkApiKey = process.env.EVOLINK_API_KEY;
 
-    const result = await makeAPIRequest(
-      'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-      data
+    if (!evolinkApiKey) {
+      throw new Error('EVOLINK_API_KEY not found');
+    }
+
+    // 1. Create generation task
+    const createResponse = await axios.post(
+      'https://api.evolink.ai/v1/images/generations',
+      {
+        model,
+        prompt,
+        n: 1,
+        size: '1024x1024'
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${evolinkApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
     );
 
-    res.json(result);
+    const taskId = createResponse.data.id;
+    console.log(`Task created: ${taskId} (Model: ${model})`);
+
+    // 2. Poll for results
+    let attempts = 0;
+    const maxAttempts = 60; // 60 seconds timeout
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const checkResponse = await axios.get(
+        `https://api.evolink.ai/v1/tasks/${taskId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${evolinkApiKey}`
+          }
+        }
+      );
+
+      const taskStatus = checkResponse.data.status;
+
+      if (taskStatus === 'completed') {
+        // Return in the format expected by the frontend
+        // The frontend expects: response.output.choices[0].message.content[0].image
+        // Evolink returns: results: ["url"]
+        const imageUrl = checkResponse.data.results[0];
+
+        // Adapt to the existing frontend response structure to minimize frontend changes
+        // or we can update frontend to handle this. 
+        // Let's adapt it here to match the structure expected by apiService.ts
+        // apiService expects: output.choices[0].message.content[0].image
+
+        const adaptedResponse = {
+          output: {
+            choices: [{
+              message: {
+                content: [{
+                  image: imageUrl
+                }]
+              }
+            }]
+          }
+        };
+
+        return res.json(adaptedResponse);
+      }
+
+      if (taskStatus === 'failed') {
+        throw new Error('Image generation task failed');
+      }
+
+      attempts++;
+    }
+
+    throw new Error('Image generation timeout');
+
   } catch (error) {
+    console.error('Image generation error:', error.response?.data || error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -98,7 +152,7 @@ app.post('/api/image-generation', async (req, res) => {
 app.post('/api/asr/start', async (req, res) => {
   try {
     const { audioUrl } = req.body;
-    
+
     const data = {
       model: 'paraformer-v2',
       input: {
@@ -127,7 +181,7 @@ app.post('/api/asr/start', async (req, res) => {
 app.get('/api/asr/status/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
-    
+
     const response = await axios.get(
       `https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`,
       {
@@ -147,10 +201,36 @@ app.get('/api/asr/status/:taskId', async (req, res) => {
 app.get('/api/transcription', async (req, res) => {
   try {
     const { url } = req.query;
-    
+
     const response = await axios.get(url);
     res.json(response.data);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 代理音频文件下载 (解决CORS问题)
+app.get('/api/proxy-audio', async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({ error: 'Missing url parameter' });
+    }
+
+    const response = await axios({
+      method: 'get',
+      url: url,
+      responseType: 'stream'
+    });
+
+    // Forward content type
+    res.set('Content-Type', response.headers['content-type']);
+
+    // Pipe the stream
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('Proxy audio failed:', error.message);
     res.status(500).json({ error: error.message });
   }
 });

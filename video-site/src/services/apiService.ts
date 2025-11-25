@@ -107,11 +107,11 @@ class APIService {
 
     while (attempts < maxAttempts) {
       const result = await this.checkASRTask(taskId);
-      
+
       if (result.output.task_status === 'SUCCEEDED') {
         return result.output.results[0].transcription_url;
       }
-      
+
       if (result.output.task_status === 'FAILED') {
         throw new Error('ASR task failed');
       }
@@ -140,11 +140,11 @@ class APIService {
 
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
-      
+
       if (currentSegment === '') {
         segmentStartTime = word.begin_time;
       }
-      
+
       currentSegment += word.text;
       segmentEndTime = word.end_time;
 
@@ -164,7 +164,7 @@ class APIService {
   generateImagePrompt(text: string): string {
     const prompts: { [key: string]: string } = {
       '软柿子': '一个简洁的卡通风格插画，一只可爱的白色猫咪角色，手持大锤对着柿子，纯色背景或无背景，卡通风格，简洁线条',
-      '狠角色': '一个简洁的卡通风格插画，一只可爱的白色猫咪角色，手持青色步枪，纯色背景或无背景，卡通风格，简洁线条',  
+      '狠角色': '一个简洁的卡通风格插画，一只可爱的白色猫咪角色，手持青色步枪，纯色背景或无背景，卡通风格，简洁线条',
       '听好了': '一个简洁的卡通风格插画，一只可爱的白色猫咪角色，举手做停止手势，纯色背景或无背景，卡通风格，简洁线条',
       '火': '一个简洁的卡通风格插画，一只可爱的白色猫咪角色，周围有火焰元素，纯色背景或无背景，卡通风格，简洁线条',
     };
@@ -178,12 +178,12 @@ class APIService {
     return '一个简洁的卡通风格插画，一只可爱的白色猫咪角色，表情生动，纯色背景或无背景，卡通风格，简洁线条';
   }
 
-  async generateImage(characterImage: string, prompt: string): Promise<string> {
+  async generateImage(characterImage: string, prompt: string, model: string = 'doubao-seedream-4.0'): Promise<string> {
     const response: ImageGenerationResponse = await this.makeRequest(
       `${PROXY_BASE_URL}/image-generation`,
       {
         method: 'POST',
-        body: JSON.stringify({ characterImage, prompt }),
+        body: JSON.stringify({ characterImage, prompt, model }),
       }
     );
 

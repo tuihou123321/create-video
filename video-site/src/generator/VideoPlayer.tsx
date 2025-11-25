@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './VideoPlayer.css';
 import { GenerationConfig } from './ConfigPage';
+import { VideoRecorder } from '../services/VideoRecorder';
 
 interface CartoonImage {
   image_url: string;
@@ -41,7 +42,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [progress, setProgress] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [isControlsVisible, setIsControlsVisible] = useState<boolean>(true);
-  
+
+  // Download state
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+
   const videoAudioRef = useRef<HTMLAudioElement>(null);
   const bgMusicRef = useRef<HTMLAudioElement>(null);
 
@@ -56,7 +61,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!videoAudioRef.current || !generatedContent) return;
 
     const audio = videoAudioRef.current;
-    
+
     const handleTimeUpdate = () => {
       const currentTime = audio.currentTime;
       setProgress(currentTime);
@@ -69,7 +74,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const activeImage = generatedContent.images.find(
         img => currentTime >= img.start_time && currentTime < img.start_time + 3.5
       );
-      
+
       if (activeImage && (activeImage.processedUrl || activeImage.url) !== currentImage?.image_url) {
         setCurrentImage({
           image_url: activeImage.processedUrl || activeImage.url,
@@ -90,12 +95,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleEnded = () => {
       setIsPlaying(false);
       setIsControlsVisible(true);
+      if (bgMusicRef.current) {
+        bgMusicRef.current.pause();
+        bgMusicRef.current.currentTime = 0;
+      }
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
-    
+
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -136,14 +145,53 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  const handleDownload = async () => {
+    if (isDownloading) return;
+
+    // Stop playback if running
+    if (isPlaying) {
+      handlePlay();
+    }
+
+    setIsDownloading(true);
+    setDownloadProgress(0);
+
+    try {
+      const recorder = new VideoRecorder(config, generatedContent);
+      const blob = await recorder.startRecording((progress) => {
+        setDownloadProgress(progress);
+      });
+
+      // Determine extension based on mime type
+      const extension = blob.type.includes('mp4') ? 'mp4' : 'webm';
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `video-${Date.now()}.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('视频生成失败，请重试');
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+    }
+  };
+
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!videoAudioRef.current || !duration) return;
-    
+
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickRatio = clickX / rect.width;
     const newTime = clickRatio * duration;
-    
+
     videoAudioRef.current.currentTime = newTime;
     setProgress(newTime);
   };
@@ -157,9 +205,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div className="App">
       <div className="background">
-        <img 
-          src={config?.backgroundImage || "/static/bg-img.jpg"} 
-          alt="background" 
+        <img
+          src={config?.backgroundImage || "/static/bg-img.jpg"}
+          alt="background"
           className="bg-image"
         />
       </div>
@@ -173,8 +221,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {currentImage && (
         <div className="cartoon-container">
-          <img 
-            src={currentImage.image_url} 
+          <img
+            src={currentImage.image_url}
             alt={currentImage.associated_text}
             className={`cartoon-image ${config?.imageBackgroundRemoval === 'css-blend' ? 'css-blend-mode' : ''} ${config?.imageBackgroundRemoval === 'checkerboard-remove' ? 'checkerboard-remove' : ''} ${config?.imageBackgroundRemoval !== 'none' && config?.imageBackgroundRemoval !== 'css-blend' && config?.imageBackgroundRemoval !== 'checkerboard-remove' ? 'background-removed' : ''}`}
             style={{
@@ -186,7 +234,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       )}
 
       {currentSubtitle && (
-        <div 
+        <div
           className="subtitle"
           style={{
             fontSize: `${config?.subtitleFontSize || 4}rem`,
@@ -198,11 +246,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {isControlsVisible && (
+      {isDownloading && (
+        <div className="processing-overlay">
+          <div className="processing-spinner">
+            正在生成视频... {Math.round(downloadProgress)}%
+          </div>
+        </div>
+      )}
+
+      {isControlsVisible && !isDownloading && (
         <>
           <div className="progress-container" onClick={handleProgressClick}>
             <div className="progress-bar-video">
-              <div 
+              <div
                 className="progress-fill-video"
                 style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
               />
@@ -219,6 +275,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </button>
             <button className="play-button" onClick={handlePlay}>
               {isPlaying ? '暂停' : '播放'}
+            </button>
+            <button className="play-button" onClick={handleDownload} style={{ backgroundColor: '#4CAF50', color: 'white' }}>
+              下载视频
             </button>
           </div>
         </>

@@ -7,8 +7,8 @@ interface ConfigPageProps {
   onBackToHome?: () => void;
   isGenerating: boolean;
   generationStep?: string;
-  imageProgress?: {completed: number, total: number};
-  backgroundProgress?: {completed: number, total: number};
+  imageProgress?: { completed: number, total: number };
+  backgroundProgress?: { completed: number, total: number };
 }
 
 export interface GenerationConfig {
@@ -16,22 +16,26 @@ export interface GenerationConfig {
   text: string;
   voice: string;
   characterImage: string;
-  
+  enableBackgroundRemoval: boolean;
+
   // 视觉配置
   backgroundImage: string;
   watermarkText: string;
   headerLeftText: string;
   headerRightText: string;
-  
+
   // 音频配置
   backgroundMusic: string;
   musicVolume: number;
-  
+
   // 样式配置
   subtitleFontSize: number;
   subtitleColor: string;
   subtitleBackgroundOpacity: number;
   imageBackgroundRemoval: 'auto' | 'css-blend' | 'checkerboard-remove' | 'ai-remove' | 'removebg-api' | 'none';
+
+  // 模型配置
+  model: string;
 }
 
 export interface HistoryItem {
@@ -62,6 +66,13 @@ const VOICE_OPTIONS = [
   { name: '四川-程川', voice: 'Eric', description: '男声 - 四川方言' }
 ];
 
+const MODEL_OPTIONS = [
+  { value: 'doubao-seedream-4.0', name: 'Doubao Seedream 4.0' },
+  { value: 'gemini-3-pro-image-preview', name: 'Gemini 3 Pro' },
+  { value: 'nano-banana-2-lite', name: 'Nano Banana 2 Lite' },
+  { value: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash' }
+];
+
 const DEFAULT_CONFIG: GenerationConfig = {
   text: '听好了，从今儿起，别再把自己当软柿子捏。学着用狠角色的路子火。',
   voice: 'Ethan',
@@ -75,17 +86,19 @@ const DEFAULT_CONFIG: GenerationConfig = {
   subtitleFontSize: 4,
   subtitleColor: '#ffffff',
   subtitleBackgroundOpacity: 0.7,
-  imageBackgroundRemoval: 'auto'
+  imageBackgroundRemoval: 'auto',
+  enableBackgroundRemoval: true,
+  model: 'doubao-seedream-4.0'
 };
 
-const ConfigPage: React.FC<ConfigPageProps> = ({ 
-  onGenerate, 
+const ConfigPage: React.FC<ConfigPageProps> = ({
+  onGenerate,
   onLoadHistory,
   onBackToHome,
-  isGenerating, 
-  generationStep, 
-  imageProgress, 
-  backgroundProgress 
+  isGenerating,
+  generationStep,
+  imageProgress,
+  backgroundProgress
 }) => {
   const [config, setConfig] = useState<GenerationConfig>(DEFAULT_CONFIG);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -94,7 +107,51 @@ const ConfigPage: React.FC<ConfigPageProps> = ({
   useEffect(() => {
     const savedHistory = localStorage.getItem('video-generator-history');
     if (savedHistory) {
-      setHistory(JSON.parse(savedHistory));
+      const parsedHistory: HistoryItem[] = JSON.parse(savedHistory);
+      const normalizedHistory = parsedHistory.map((item) => {
+        const storedConfig = item.config as GenerationConfig;
+        const enableBackgroundRemoval =
+          typeof storedConfig.enableBackgroundRemoval === 'boolean'
+            ? storedConfig.enableBackgroundRemoval
+            : storedConfig.imageBackgroundRemoval !== 'none';
+
+        const normalizedConfig: GenerationConfig = {
+          ...storedConfig,
+          enableBackgroundRemoval,
+          imageBackgroundRemoval: enableBackgroundRemoval
+            ? storedConfig.imageBackgroundRemoval || 'auto'
+            : 'none',
+          model: storedConfig.model || 'doubao-seedream-4.0'
+        };
+
+        const normalizedResult = item.result
+          ? {
+            ...item.result,
+            images: Array.isArray(item.result.images)
+              ? item.result.images.map((image: any) => {
+                const originalUrl = image?.url;
+                const processedUrl = image?.processedUrl;
+                const isStaleBlob =
+                  typeof processedUrl === 'string' && processedUrl.startsWith('blob:');
+
+                return {
+                  ...image,
+                  processedUrl: isStaleBlob ? originalUrl : processedUrl || originalUrl
+                };
+              })
+              : item.result.images
+          }
+          : item.result;
+
+        return {
+          ...item,
+          config: normalizedConfig,
+          result: normalizedResult
+        };
+      });
+
+      setHistory(normalizedHistory);
+      localStorage.setItem('video-generator-history', JSON.stringify(normalizedHistory));
     }
   }, []);
 
@@ -110,6 +167,19 @@ const ConfigPage: React.FC<ConfigPageProps> = ({
   const clearHistory = () => {
     localStorage.removeItem('video-generator-history');
     setHistory([]);
+  };
+
+  const handleBackgroundRemovalToggle = (checked: boolean) => {
+    setConfig(prev => {
+      const nextMode = checked
+        ? (prev.imageBackgroundRemoval === 'none' ? 'auto' : prev.imageBackgroundRemoval)
+        : 'none';
+      return {
+        ...prev,
+        enableBackgroundRemoval: checked,
+        imageBackgroundRemoval: nextMode
+      };
+    });
   };
 
   const resetToDefaults = () => {
@@ -131,34 +201,34 @@ const ConfigPage: React.FC<ConfigPageProps> = ({
           )}
           <h1>AI营销视频生成器</h1>
         </div>
-        
+
         <div className="config-tabs">
-          <button 
+          <button
             className={`tab-button ${activeTab === 'basic' ? 'active' : ''}`}
             onClick={() => setActiveTab('basic')}
           >
             基本设置
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'visual' ? 'active' : ''}`}
             onClick={() => setActiveTab('visual')}
           >
             视觉设置
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'audio' ? 'active' : ''}`}
             onClick={() => setActiveTab('audio')}
           >
             音频设置
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'style' ? 'active' : ''}`}
             onClick={() => setActiveTab('style')}
           >
             样式设置
           </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="config-form">
           {/* 基本设置 */}
           {activeTab === 'basic' && (
@@ -211,6 +281,50 @@ const ConfigPage: React.FC<ConfigPageProps> = ({
                   placeholder="请输入角色图片URL..."
                   required
                 />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="model">AI生图模型</label>
+                <select
+                  id="model"
+                  value={config.model}
+                  onChange={(e) => updateConfig('model', e.target.value)}
+                >
+                  {MODEL_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group form-group-inline">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={config.enableBackgroundRemoval}
+                    onChange={(e) => handleBackgroundRemovalToggle(e.target.checked)}
+                  />
+                  <span>开启自动抠图</span>
+                </label>
+                <p className="form-hint">默认启用自动抠图，可根据需要关闭。</p>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="imageBackgroundRemoval">图片背景处理</label>
+                <select
+                  id="imageBackgroundRemoval"
+                  value={config.imageBackgroundRemoval}
+                  onChange={(e) => updateConfig('imageBackgroundRemoval', e.target.value)}
+                  disabled={!config.enableBackgroundRemoval}
+                >
+                  <option value="auto">智能去除（推荐）</option>
+                  <option value="ai-remove">AI背景去除</option>
+                  <option value="removebg-api">Remove.bg API</option>
+                  <option value="css-blend">CSS混合模式</option>
+                  <option value="checkerboard-remove">强力去棋盘格</option>
+                </select>
+                <p className="form-hint">AI背景去除和Remove.bg API可完全移除棋盘格背景，效果最佳</p>
               </div>
             </>
           )}
@@ -347,39 +461,24 @@ const ConfigPage: React.FC<ConfigPageProps> = ({
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="imageBackgroundRemoval">图片背景处理</label>
-                <select
-                  id="imageBackgroundRemoval"
-                  value={config.imageBackgroundRemoval}
-                  onChange={(e) => updateConfig('imageBackgroundRemoval', e.target.value)}
-                >
-                  <option value="auto">智能去除（推荐）</option>
-                  <option value="ai-remove">AI背景去除</option>
-                  <option value="removebg-api">Remove.bg API</option>
-                  <option value="css-blend">CSS混合模式</option>
-                  <option value="checkerboard-remove">强力去棋盘格</option>
-                  <option value="none">保持原始</option>
-                </select>
-                <p className="form-hint">AI背景去除和Remove.bg API可完全移除棋盘格背景，效果最佳</p>
-              </div>
+
             </>
           )}
 
           <div className="form-buttons">
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="reset-button"
               onClick={resetToDefaults}
             >
               重置为默认
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="generate-button"
               disabled={isGenerating}
             >
-              {isGenerating ? '生成中...' : '生成视频'}
+              {isGenerating ? '生成预览中...' : '生成预览'}
             </button>
           </div>
         </form>
@@ -387,30 +486,30 @@ const ConfigPage: React.FC<ConfigPageProps> = ({
         {isGenerating && (
           <div className="progress-container">
             <div className="progress-info">
-              <h3>生成进度</h3>
-              <p className="progress-step">{generationStep || '正在生成...'}</p>
-              
+              <h3>预览生成进度</h3>
+              <p className="progress-step">{generationStep || '正在生成预览...'}</p>
+
               {imageProgress && imageProgress.total > 0 && (
                 <div className="progress-item">
                   <div className="progress-label">
                     图片生成: {imageProgress.completed}/{imageProgress.total}
                   </div>
                   <div className="progress-bar">
-                    <div 
+                    <div
                       className="progress-fill"
                       style={{ width: `${(imageProgress.completed / imageProgress.total) * 100}%` }}
                     ></div>
                   </div>
                 </div>
               )}
-              
+
               {backgroundProgress && backgroundProgress.total > 0 && (
                 <div className="progress-item">
                   <div className="progress-label">
                     背景处理: {backgroundProgress.completed}/{backgroundProgress.total}
                   </div>
                   <div className="progress-bar">
-                    <div 
+                    <div
                       className="progress-fill"
                       style={{ width: `${(backgroundProgress.completed / backgroundProgress.total) * 100}%` }}
                     ></div>
@@ -437,7 +536,7 @@ const ConfigPage: React.FC<ConfigPageProps> = ({
                       声音: {VOICE_OPTIONS.find(v => v.voice === item.config.voice)?.name || item.config.voice} | {new Date(item.timestamp).toLocaleString()}
                     </p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => handleLoadHistory(item)}
                     className="load-history-btn"
                   >

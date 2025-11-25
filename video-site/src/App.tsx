@@ -1,31 +1,38 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import LandingPage from './LandingPage';
 import Generator from './generator';
 import { defaultLandingConfig } from './landingConfig';
 
-function App() {
-  const [currentPage, setCurrentPage] = useState<'landing' | 'generator'>('landing');
+const App: React.FC = () => {
+  const navigate = useNavigate();
 
   const handleStartCreating = () => {
-    setCurrentPage('generator');
+    navigate('/generator');
   };
 
   const handleBackToHome = () => {
-    setCurrentPage('landing');
+    navigate('/');
   };
 
-  if (currentPage === 'landing') {
-    return (
-      <LandingPage 
-        onStartCreating={handleStartCreating}
-        config={defaultLandingConfig}
-      />
-    );
-  }
-
   return (
-    <Generator onBackToHome={handleBackToHome} />
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <LandingPage
+            onStartCreating={handleStartCreating}
+            config={defaultLandingConfig}
+          />
+        }
+      />
+      <Route
+        path="/generator"
+        element={<Generator onBackToHome={handleBackToHome} />}
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
-}
+};
 
 export default App;
